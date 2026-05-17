@@ -40,5 +40,11 @@ class Environment:
         key = self._normalize(name)
         return key in self._variables or key in self._functions
 
+    def get_all_variables(self):
+        return dict(self._variables)
+
+    def get_all_functions(self):
+        return dict(self._functions)
+
     def __repr__(self):
         return f'Environment(vars={self._variables}, funcs={self._functions})'

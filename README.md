@@ -13,6 +13,7 @@ An interpreter for advanced mathematical computations — rational numbers, comp
 - **Polynomial solver** — equations of degree ≤ 2, solutions in ℝ or ℂ
 - **Expression simplification** — e.g., `2 + 3 * 4` → `14`
 - **Variable assignment** — type inference, reassignment, cross-type
+- **List defined variables** — `vars` / `showvars` command
 - **REPL** — interactive command-line interpreter
 
 ## Quick start
@@ -146,6 +147,27 @@ One solution in R:
 3 + 4i
 > x = -(7/3)
 -7/3
+```
+
+### Listing defined variables
+
+Use `vars` or `showvars` to display all defined variables, their types, and values:
+
+```text
+> x = 42
+42
+> y = 3 + 4i
+3 + 4i
+> f(t) = 2*t + 1
+2 * t + 1
+> vars
+x (rational) = 42
+y (complex) = 3 + 4i
+f (function) = 2 * t + 1
+> showvars
+x (rational) = 42
+y (complex) = 3 + 4i
+f (function) = 2 * t + 1
 ```
 
 ## Project structure
