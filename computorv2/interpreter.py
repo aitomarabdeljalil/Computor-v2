@@ -9,8 +9,9 @@ from .types.complex_num import Complex
 from .types.matrix import Matrix
 from .environment import Environment
 from .exceptions import RuntimeError_, TypeError_, NameError_, ZeroDivisionError_
-from .printer import print_value
+from .printer import print_value, print_expression
 from .solver import solve_equation
+from .simplify import simplify as simplify_expr
 
 
 class Interpreter:
@@ -201,8 +202,34 @@ class Interpreter:
     def _eval_query(self, node):
         if node.expr is None:
             return None
+        if self._is_symbolic_composition(node.expr):
+            return self._eval_symbolic_composition(node.expr)
         val = self.eval(node.expr)
         return val
+
+    def _is_symbolic_composition(self, expr):
+        if not isinstance(expr, FunctionCall):
+            return False
+        inner = expr
+        while isinstance(inner, FunctionCall):
+            inner = inner.arg
+        return isinstance(inner, Identifier)
+
+    def _eval_symbolic_composition(self, expr):
+        calls = []
+        e = expr
+        while isinstance(e, FunctionCall):
+            calls.append(e.name)
+            e = e.arg
+        current = e
+        for fn_name in reversed(calls):
+            fn_def = self.env.get_function(fn_name)
+            current = self._substitute_var(
+                fn_def.body,
+                Identifier(fn_def.param),
+                current
+            )
+        return simplify_expr(current)
 
     def _eval_solve_query(self, node):
         func_body = self._get_function_body(node.expr)

@@ -8,6 +8,9 @@ def print_value(value):
     if isinstance(value, FunctionDef):
         from .interpreter import Interpreter
         return print_expression(value.body)
+    from .ast_nodes import Node
+    if isinstance(value, Node):
+        return print_expression(value)
     if isinstance(value, Rational):
         return format_rational(value)
     if isinstance(value, Complex):

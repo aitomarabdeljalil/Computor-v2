@@ -12,6 +12,7 @@ An interpreter for advanced mathematical computations — rational numbers, comp
 - **Norm / absolute value** — `\|expr\|` or `norm(expr)`: modulus for complex, Frobenius norm for matrices
 - **Functions** — single-variable functions with symbolic evaluation
 - **Function composition** — `f @ g` creates `h(x) = f(g(x))` via AST substitution
+- **Symbolic composition queries** — `funA(funB(x)) = ?` evaluates and simplifies inline without storing
 - **Polynomial solver** — equations of degree ≤ 2, solutions in ℝ or ℂ
 - **Expression simplification** — e.g., `2 + 3 * 4` → `14`
 - **Variable assignment** — type inference, reassignment, cross-type
@@ -242,6 +243,48 @@ One solution in R:
 -1
 ```
 
+### Symbolic composition queries
+
+A nested function call followed by `= ?` evaluates the composition symbolically, substituting inner function bodies and algebraically simplifying the result. No new function is stored — the result is displayed and discarded.
+
+```
+> funA(x) = 2*x + 1
+2 * x + 1
+> funB(x) = 2*x + 1
+2 * x + 1
+> funA(funB(x)) = ?
+4 * x + 3
+```
+
+Variable renaming handles differing parameter names automatically:
+
+```
+> f(t) = 2*t + 1
+2 * t + 1
+> g(y) = y + 3
+y + 3
+> f(g(x)) = ?
+2 * x + 7
+```
+
+Chains of any depth are supported:
+
+```
+> h(z) = 3*z
+3 * z
+> f(g(h(x))) = ?
+6 * x + 7
+```
+
+**How it works**:
+1. The `_eval_query` method detects the pattern `FunctionCall(FunctionCall(...(Identifier)...))`
+2. Instead of numeric evaluation, it walks from innermost to outermost, calling `_substitute_var` to replace each function's parameter with the next inner function's **AST body**
+3. The final composed AST is passed to `simplify()` (in `simplify.py`) which performs:
+   - **Distribution**: `a·(b + c)` → `a·b + a·c`
+   - **Constant folding**: `2·3` → `6`, `x + 0` → `x`
+   - **Term collection**: flattens `+` chains, groups same-variable terms, combines coefficients
+4. The resulting simplified AST is passed to `print_expression` for clean output
+
 ### Command history
 
 Every command entered at the REPL is stored in an in-memory history buffer (max 100 entries). Use `history` to list all entries with their indices, and `!<N>` to re-execute a previous command:
@@ -281,7 +324,7 @@ Meta-commands (`vars`, `showvars`, `history`) are also stored and can be re-exec
 | `*` `**` | Multiplication / matrix multiplication |
 | `/` | Division |
 | `%` | Modulo |
-| `^` | Power (integer, non-negative) |
+| `^` | Power (integer, non-negative); `^-1` for matrix inverse |
 | `@` | Function composition (`f @ g` = `f ∘ g`) |
 | `=` | Assignment (variables) or equation (solver) |
 | `?` | Query / solve trigger |
@@ -340,6 +383,7 @@ computorv2/
 ├── interpreter.py       # Evaluator
 ├── environment.py       # Symbol table
 ├── solver.py            # Polynomial equation solver
+├── simplify.py          # Algebraic simplification engine
 ├── printer.py           # Output formatting
 ├── exceptions.py        # Custom error types
 └── types/
