@@ -82,3 +82,18 @@ class SolveQuery(Node):
 
     def __repr__(self):
         return f'SolveQuery({self.expr}, {self.value})'
+
+class Norm(Node):
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __repr__(self):
+        return f'Norm({self.expr})'
+
+class Compose(Node):
+    def __init__(self, left, right):
+        self.left = left
+        self.right = right
+
+    def __repr__(self):
+        return f'Compose({self.left}, {self.right})'

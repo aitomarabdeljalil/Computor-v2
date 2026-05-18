@@ -201,6 +201,9 @@ class Rational:
     def is_one(self):
         return self._frac == 1
 
+    def norm(self):
+        return abs(self)
+
     def sqrt(self):
         if self._frac < 0:
             raise ValueError('Cannot take sqrt of negative rational without complex')

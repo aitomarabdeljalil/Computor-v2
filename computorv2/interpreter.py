@@ -2,7 +2,7 @@ from fractions import Fraction
 from .ast_nodes import (
     Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp,
     MatrixLiteral, Assignment, FunctionDef, FunctionCall,
-    Query, SolveQuery
+    Query, SolveQuery, Norm, Compose
 )
 from .types.rational import Rational
 from .types.complex_num import Complex
@@ -40,6 +40,10 @@ class Interpreter:
             return self._eval_query(node)
         if isinstance(node, SolveQuery):
             return self._eval_solve_query(node)
+        if isinstance(node, Norm):
+            return self._eval_norm(node)
+        if isinstance(node, Compose):
+            return self._eval_compose(node)
         raise RuntimeError_(f'Unknown node type: {type(node).__name__}')
 
     def _eval_unary(self, node):
@@ -79,7 +83,10 @@ class Interpreter:
                 return left.matrix_mul(right)
             return left ** right
         if node.op == '^':
-            return left ** right
+            try:
+                return left ** right
+            except (ValueError, ZeroDivisionError) as e:
+                raise RuntimeError_(str(e))
         if node.op == '=':
             if isinstance(node.left, Identifier) and not isinstance(right, FunctionDef):
                 self.env.set_variable(node.left.name, right)
@@ -97,6 +104,10 @@ class Interpreter:
 
     def _eval_assignment(self, node):
         value = self.eval(node.expr)
+        if isinstance(value, FunctionDef):
+            func_def = FunctionDef(node.name, value.param, value.body)
+            self.env.set_function(node.name, func_def)
+            return func_def
         self.env.set_variable(node.name, value)
         return value
 
@@ -105,6 +116,19 @@ class Interpreter:
         return node
 
     def _eval_function_call(self, node):
+        if node.name.lower() == 'norm':
+            arg_val = self.eval(node.arg)
+            if isinstance(arg_val, (Rational, Complex, Matrix)):
+                return arg_val.norm()
+            raise TypeError_(f'norm not defined for {type(arg_val).__name__}')
+        if node.name.lower() == 'inverse':
+            arg_val = self.eval(node.arg)
+            if isinstance(arg_val, Matrix):
+                try:
+                    return arg_val.inverse()
+                except ValueError as e:
+                    raise RuntimeError_(str(e))
+            raise TypeError_(f'inverse is only defined for matrices')
         func_def = self.env.get_function(node.name)
         arg_val = self.eval(node.arg)
         if isinstance(arg_val, (Rational, int)):
@@ -137,7 +161,42 @@ class Interpreter:
             )
         if isinstance(node, FunctionCall):
             return FunctionCall(node.name, self._substitute_var(node.arg, var_node, value))
+        if isinstance(node, Norm):
+            return Norm(self._substitute_var(node.expr, var_node, value))
+        if isinstance(node, Compose):
+            return Compose(
+                self._substitute_var(node.left, var_node, value),
+                self._substitute_var(node.right, var_node, value)
+            )
         return node
+
+    def _eval_norm(self, node):
+        val = self.eval(node.expr)
+        if isinstance(val, (Rational, Complex, Matrix)):
+            return val.norm()
+        raise RuntimeError_(f'Norm not defined for {type(val).__name__}')
+
+    def _eval_compose(self, node):
+        if isinstance(node.left, Compose):
+            left_fn = self._eval_compose(node.left)
+        elif isinstance(node.left, Identifier):
+            left_fn = self.env.get_function(node.left.name)
+        else:
+            raise RuntimeError_('Composition requires function names (e.g. f @ g)')
+
+        if isinstance(node.right, Compose):
+            right_fn = self._eval_compose(node.right)
+        elif isinstance(node.right, Identifier):
+            right_fn = self.env.get_function(node.right.name)
+        else:
+            raise RuntimeError_('Composition requires function names (e.g. f @ g)')
+
+        composed_body = self._substitute_var(
+            left_fn.body,
+            Identifier(left_fn.param),
+            right_fn.body
+        )
+        return FunctionDef('', right_fn.param, composed_body)
 
     def _eval_query(self, node):
         if node.expr is None:
@@ -179,7 +238,7 @@ class Interpreter:
         raise RuntimeError_('Solve query requires a function call on the left side')
 
     def _build_solve_term(self, node):
-        if isinstance(node, (Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp, FunctionCall)):
+        if isinstance(node, (Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp, FunctionCall, Norm, Compose)):
             val = self.eval(node)
             if isinstance(val, (Rational, int)):
                 return Rational(val)
@@ -206,4 +265,8 @@ class Interpreter:
             return f'{self._node_to_expr_str(node.left)} {node.op} {self._node_to_expr_str(node.right)}'
         if isinstance(node, FunctionCall):
             return f'{node.name}({self._node_to_expr_str(node.arg)})'
+        if isinstance(node, Norm):
+            return f'|{self._node_to_expr_str(node.expr)}|'
+        if isinstance(node, Compose):
+            return f'{self._node_to_expr_str(node.left)} @ {self._node_to_expr_str(node.right)}'
         return str(node)

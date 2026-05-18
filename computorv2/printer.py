@@ -26,7 +26,7 @@ def format_rational(r):
 def print_expression(node):
     if node is None:
         return ''
-    from .ast_nodes import Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp, FunctionCall
+    from .ast_nodes import Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp, FunctionCall, Norm, Compose
     if isinstance(node, Number):
         return node.value
     if isinstance(node, Identifier):
@@ -41,6 +41,10 @@ def print_expression(node):
         return f'{left} {node.op} {right}'
     if isinstance(node, FunctionCall):
         return f'{node.name}({print_expression(node.arg)})'
+    if isinstance(node, Norm):
+        return f'|{print_expression(node.expr)}|'
+    if isinstance(node, Compose):
+        return f'{print_expression(node.left)} @ {print_expression(node.right)}'
     return str(node)
 
 

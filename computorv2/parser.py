@@ -2,7 +2,7 @@ from .lexer import TokenType
 from .ast_nodes import (
     Number, Identifier, ImaginaryUnit, UnaryOp, BinaryOp,
     MatrixLiteral, Assignment, FunctionDef, FunctionCall,
-    Query, SolveQuery
+    Query, SolveQuery, Norm, Compose
 )
 from .exceptions import ParserError
 
@@ -12,10 +12,10 @@ PRECEDENCE = {
     '=': 1,
     '+': 2, '-': 2,
     '*': 3, '/': 3, '%': 3,
-    '**': 4, '^': 4,
+    '**': 4, '^': 4, '@': 4,
 }
 
-RIGHT_ASSOC = {'^', '**'}
+RIGHT_ASSOC = {'^', '**', '@'}
 
 
 class Parser:
@@ -154,6 +154,11 @@ class Parser:
             self.advance()
             left = self._parse_expr(0)
             self.expect(TokenType.RPAREN)
+        elif tok.type == TokenType.PIPE:
+            self.advance()
+            left = self._parse_expr(0)
+            self.expect(TokenType.PIPE)
+            left = Norm(left)
         elif tok.type == TokenType.LBRACKET:
             left = self._parse_matrix()
         else:
@@ -164,7 +169,7 @@ class Parser:
             if tok is None or tok.type in (TokenType.EOF, TokenType.RPAREN,
                                            TokenType.RBRACKET, TokenType.COMMA,
                                            TokenType.SEMICOLON, TokenType.QUESTION,
-                                           TokenType.EQUALS):
+                                           TokenType.EQUALS, TokenType.PIPE):
                 break
 
             if tok.type in (TokenType.PLUS, TokenType.MINUS,
@@ -182,6 +187,15 @@ class Parser:
                     next_min = prec + 1
                 right = self._parse_expr(next_min)
                 left = BinaryOp(left, op, right)
+            elif tok.type == TokenType.AT:
+                self.advance()
+                prec = PRECEDENCE.get('@', 0)
+                if prec < min_prec:
+                    self.pos -= 1
+                    break
+                next_min = prec
+                right = self._parse_expr(next_min)
+                left = Compose(left, right)
             else:
                 break
 

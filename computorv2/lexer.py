@@ -20,6 +20,8 @@ class TokenType(Enum):
     COMMA = 'COMMA'
     EQUALS = 'EQUALS'
     QUESTION = 'QUESTION'
+    PIPE = 'PIPE'
+    AT = 'AT'
     EOF = 'EOF'
 
 
@@ -80,7 +82,7 @@ class Lexer:
 
     def read_identifier(self):
         start = self.pos
-        while self.pos < len(self.text) and self.peek().isalpha():
+        while self.pos < len(self.text) and (self.peek().isalnum()):
             self.advance()
         return self.text[start:self.pos]
 
@@ -162,6 +164,14 @@ class Lexer:
         if ch == '?':
             self.advance()
             return Token(TokenType.QUESTION, '?', (self.line, self.col - 1))
+
+        if ch == '|':
+            self.advance()
+            return Token(TokenType.PIPE, '|', (self.line, self.col - 1))
+
+        if ch == '@':
+            self.advance()
+            return Token(TokenType.AT, '@', (self.line, self.col - 1))
 
         self.error(f'Unexpected character {ch!r}')
 

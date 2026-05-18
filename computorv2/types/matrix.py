@@ -1,3 +1,5 @@
+import math
+from fractions import Fraction
 from .rational import Rational
 from .complex_num import Complex, ZeroDivisionError as ComplexZeroDiv
 
@@ -104,8 +106,10 @@ class Matrix:
         if isinstance(other, int):
             if not self.is_square():
                 raise ValueError('Only square matrices can be raised to a power')
+            if other == -1:
+                return self.inverse()
             if other < 0:
-                raise ValueError('Negative powers not supported for matrices')
+                raise ValueError('Only -1 (inverse) is supported for negative powers')
             if other == 0:
                 return self._identity()
             result = self
@@ -115,7 +119,7 @@ class Matrix:
         if isinstance(other, Rational):
             if other.denominator == 1:
                 return self ** other.numerator
-        raise ValueError('Only non-negative integer powers supported for matrices')
+        raise ValueError('Only integer powers supported for matrices')
 
     def __neg__(self):
         result = [[-elem for elem in row] for row in self.data]
@@ -150,6 +154,79 @@ class Matrix:
                 row.append(Complex(Rational(1 if i == j else 0), Rational(0)))
             result.append(row)
         return Matrix(result)
+
+    def norm(self):
+        total = Rational(0)
+        for row in self.data:
+            for elem in row:
+                total = total + elem.real * elem.real + elem.imag * elem.imag
+        f = math.sqrt(float(total))
+        return Rational(Fraction(f).limit_denominator(1000000))
+
+    def _minor(self, row, col):
+        data = []
+        for i in range(self.rows):
+            if i == row:
+                continue
+            new_row = []
+            for j in range(self.cols):
+                if j == col:
+                    continue
+                new_row.append(self.data[i][j])
+            data.append(new_row)
+        return Matrix(data)
+
+    def determinant(self):
+        if not self.is_square():
+            raise ValueError('Determinant is only defined for square matrices')
+        n = self.rows
+        if n == 1:
+            return self.data[0][0]
+        if n == 2:
+            return (self.data[0][0] * self.data[1][1]
+                    - self.data[0][1] * self.data[1][0])
+        if n == 3:
+            a, b, c = self.data[0]
+            d, e, f = self.data[1]
+            g, h, i = self.data[2]
+            return (a * (e * i - f * h)
+                    - b * (d * i - f * g)
+                    + c * (d * h - e * g))
+        return self._laplace_det()
+
+    def _laplace_det(self):
+        total = Complex(Rational(0), Rational(0))
+        for j in range(self.cols):
+            sign = Complex(Rational(1), Rational(0)) if j % 2 == 0 else Complex(Rational(-1), Rational(0))
+            total = total + sign * self.data[0][j] * self._minor(0, j).determinant()
+        return total
+
+    def _cofactor(self, i, j):
+        det = self._minor(i, j).determinant()
+        if (i + j) % 2 == 1:
+            return -det
+        return det
+
+    def adjugate(self):
+        n = self.rows
+        result = []
+        for i in range(n):
+            row = []
+            for j in range(n):
+                row.append(self._cofactor(j, i))
+            result.append(row)
+        return Matrix(result)
+
+    def inverse(self):
+        if not self.is_square():
+            raise ValueError('Inverse is only defined for square matrices')
+        det = self.determinant()
+        if det.is_zero():
+            raise ValueError('Matrix is singular (determinant is zero) — no inverse exists')
+        if self.rows == 1:
+            inv = Complex(Rational(1), Rational(0)) / self.data[0][0]
+            return Matrix([[inv]])
+        return self.adjugate() * (Complex(Rational(1), Rational(0)) / det)
 
     def transpose(self):
         result = []

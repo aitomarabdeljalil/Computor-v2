@@ -116,8 +116,11 @@ class Complex:
             return result
         return not result
 
-    def __abs__(self):
+    def norm(self):
         return (self.real * self.real + self.imag * self.imag).sqrt()
+
+    def __abs__(self):
+        return self.norm()
 
     def __repr__(self):
         if self.imag.is_zero():
